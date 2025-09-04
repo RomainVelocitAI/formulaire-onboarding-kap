@@ -79,7 +79,8 @@ document.addEventListener('DOMContentLoaded', function() {
     setupUploadZone('photosEquipeUpload', 'photos-equipe', 'photosEquipe', ['image/png', 'image/jpeg'], 'photosEquipeFiles');
     setupUploadZone('photosProduitsUpload', 'photos-produits', 'photosProduits', ['image/png', 'image/jpeg'], 'photosProduitsFiles');
     setupUploadZone('photosLocauxUpload', 'photos-locaux', 'photosLocaux', ['image/png', 'image/jpeg'], 'photosLocauxFiles');
-    setupUploadZone('videosUpload', 'videos', 'videos', ['video/mp4', 'video/quicktime', 'video/x-msvideo'], 'videosFiles');
+    // Désactiver l'upload de vidéos (trop volumineux)
+    // setupUploadZone('videosUpload', 'videos', 'videos', ['video/mp4', 'video/quicktime', 'video/x-msvideo'], 'videosFiles');
     setupUploadZone('cgvUpload', 'cgv', 'cgv', ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'], 'cgvFiles');
     setupUploadZone('docsCommerciaux', 'docs-commerciaux', 'docsCommerciaux', ['application/pdf', 'image/png', 'image/jpeg'], 'docsCommerciauxFiles');
 
@@ -200,8 +201,60 @@ document.addEventListener('DOMContentLoaded', function() {
         setTimeout(() => notification.remove(), 3000);
     }
 
+    // Compresser une image si nécessaire
+    async function compressImage(file, maxWidth = 1920, maxHeight = 1080, quality = 0.8) {
+        // Si le fichier est déjà petit, ne pas compresser
+        if (file.size < 500000) { // Moins de 500KB
+            return file;
+        }
+
+        // Seulement compresser les images
+        if (!file.type.startsWith('image/')) {
+            return file;
+        }
+
+        return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    let width = img.width;
+                    let height = img.height;
+
+                    // Calculer les nouvelles dimensions
+                    if (width > maxWidth || height > maxHeight) {
+                        const ratio = Math.min(maxWidth / width, maxHeight / height);
+                        width *= ratio;
+                        height *= ratio;
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    canvas.toBlob((blob) => {
+                        // Créer un nouveau fichier avec le blob compressé
+                        const compressedFile = new File([blob], file.name, {
+                            type: file.type,
+                            lastModified: Date.now()
+                        });
+                        resolve(compressedFile);
+                    }, file.type, quality);
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+
     // Convertir les fichiers en base64 pour Airtable
     async function fileToBase64(file) {
+        // Compresser l'image si nécessaire
+        const fileToConvert = await compressImage(file);
+        
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
             reader.onload = () => {
@@ -212,7 +265,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
             };
             reader.onerror = reject;
-            reader.readAsDataURL(file);
+            reader.readAsDataURL(fileToConvert);
         });
     }
 
@@ -220,14 +273,40 @@ document.addEventListener('DOMContentLoaded', function() {
     async function prepareFormData() {
         const formData = new FormData(form);
         
-        // Convertir tous les fichiers en base64
-        const logoFiles = await Promise.all(uploadedFiles.logo.map(fileToBase64));
-        const photosEquipeFiles = await Promise.all(uploadedFiles.photosEquipe.map(fileToBase64));
-        const photosProduitsFiles = await Promise.all(uploadedFiles.photosProduits.map(fileToBase64));
-        const photosLocauxFiles = await Promise.all(uploadedFiles.photosLocaux.map(fileToBase64));
-        const videosFiles = await Promise.all(uploadedFiles.videos.map(fileToBase64));
-        const cgvFiles = await Promise.all(uploadedFiles.cgv.map(fileToBase64));
-        const docsCommerciauxFiles = await Promise.all(uploadedFiles.docsCommerciaux.map(fileToBase64));
+        // Limiter le nombre de fichiers par catégorie pour éviter de dépasser la limite
+        const MAX_FILES_PER_CATEGORY = 3;
+        
+        // Convertir les fichiers en base64 (avec limitation)
+        const logoFiles = await Promise.all(
+            uploadedFiles.logo.slice(0, 1).map(fileToBase64) // Un seul logo
+        );
+        const photosEquipeFiles = await Promise.all(
+            uploadedFiles.photosEquipe.slice(0, MAX_FILES_PER_CATEGORY).map(fileToBase64)
+        );
+        const photosProduitsFiles = await Promise.all(
+            uploadedFiles.photosProduits.slice(0, MAX_FILES_PER_CATEGORY).map(fileToBase64)
+        );
+        const photosLocauxFiles = await Promise.all(
+            uploadedFiles.photosLocaux.slice(0, MAX_FILES_PER_CATEGORY).map(fileToBase64)
+        );
+        // Pas de vidéos en base64 car trop volumineuses
+        const videosFiles = [];
+        const cgvFiles = await Promise.all(
+            uploadedFiles.cgv.slice(0, 2).map(fileToBase64) // Max 2 documents
+        );
+        const docsCommerciauxFiles = await Promise.all(
+            uploadedFiles.docsCommerciaux.slice(0, 2).map(fileToBase64) // Max 2 documents
+        );
+        
+        // Avertir l'utilisateur si des fichiers ont été ignorés
+        if (uploadedFiles.videos.length > 0) {
+            showError('Les vidéos sont trop volumineuses pour être envoyées directement. Veuillez les partager via un lien (YouTube, Vimeo, Drive).');
+        }
+        if (uploadedFiles.photosEquipe.length > MAX_FILES_PER_CATEGORY ||
+            uploadedFiles.photosProduits.length > MAX_FILES_PER_CATEGORY ||
+            uploadedFiles.photosLocaux.length > MAX_FILES_PER_CATEGORY) {
+            showError(`Seules les ${MAX_FILES_PER_CATEGORY} premières photos de chaque catégorie ont été envoyées.`);
+        }
 
         return {
             fields: {
@@ -250,7 +329,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 "Photos équipe": photosEquipeFiles.length > 0 ? photosEquipeFiles : undefined,
                 "Photos produits/services": photosProduitsFiles.length > 0 ? photosProduitsFiles : undefined,
                 "Photos locaux/ambiance": photosLocauxFiles.length > 0 ? photosLocauxFiles : undefined,
-                "Vidéos": videosFiles.length > 0 ? videosFiles : undefined,
+                "Liens vidéos": formData.get('videos-links') || undefined,
                 "Adresse complète": formData.get('adresse'),
                 "Horaires d'ouverture": formData.get('horaires') || undefined,
                 "Réseaux sociaux": formData.get('reseaux-sociaux') || undefined,
@@ -356,7 +435,16 @@ document.addEventListener('DOMContentLoaded', function() {
         } catch (error) {
             console.error('Erreur:', error);
             errorMessage.classList.add('show');
-            errorMessage.querySelector('p').textContent = error.message;
+            
+            // Message d'erreur plus clair selon le type d'erreur
+            let userMessage = error.message;
+            if (error.message.includes('413') || error.message.includes('too large') || error.message.includes('Entity Too Large')) {
+                userMessage = 'Les fichiers sont trop volumineux. Veuillez réduire leur taille ou leur nombre. Maximum 3 photos par catégorie.';
+            } else if (error.message.includes('SyntaxError')) {
+                userMessage = 'Erreur de communication avec le serveur. Les fichiers sont peut-être trop volumineux.';
+            }
+            
+            errorMessage.querySelector('p').textContent = userMessage;
             errorMessage.scrollIntoView({ behavior: 'smooth', block: 'center' });
         } finally {
             submitBtn.classList.remove('loading');

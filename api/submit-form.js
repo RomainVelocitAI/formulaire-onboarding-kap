@@ -1,5 +1,7 @@
 // API Route pour Vercel - Gestion du formulaire d'onboarding avec uploads
 export default async function handler(req, res) {
+    // Configuration de la taille maximale (4.5MB pour Vercel)
+    const MAX_BODY_SIZE = 4.5 * 1024 * 1024; // 4.5MB
     // Vérifier la méthode HTTP
     if (req.method !== 'POST') {
         return res.status(405).json({ message: 'Méthode non autorisée' });
@@ -65,11 +67,22 @@ export default async function handler(req, res) {
             }
         });
 
-        // Vérifier la taille totale de la requête
+        // Vérifier la taille totale de la requête (limite Vercel ET Airtable)
         const requestSize = JSON.stringify(data).length;
-        if (requestSize > 10 * 1024 * 1024) { // 10MB
+        const MAX_AIRTABLE_SIZE = 10 * 1024 * 1024; // 10MB pour Airtable
+        
+        // Vérifier d'abord la limite Vercel
+        if (requestSize > MAX_BODY_SIZE) {
+            console.log(`Requête trop grande: ${(requestSize / 1024 / 1024).toFixed(2)}MB > ${(MAX_BODY_SIZE / 1024 / 1024).toFixed(2)}MB`);
             return res.status(413).json({ 
-                message: 'La taille totale des fichiers dépasse la limite de 10MB. Veuillez réduire le nombre ou la taille des fichiers.' 
+                message: `Les fichiers sont trop volumineux (${(requestSize / 1024 / 1024).toFixed(1)}MB). Maximum autorisé: 4MB. Veuillez réduire le nombre de fichiers ou leur taille.` 
+            });
+        }
+        
+        // Vérifier ensuite la limite Airtable
+        if (requestSize > MAX_AIRTABLE_SIZE) {
+            return res.status(413).json({ 
+                message: 'La taille totale des fichiers dépasse la limite d\'Airtable (10MB). Veuillez réduire le nombre ou la taille des fichiers.' 
             });
         }
 
