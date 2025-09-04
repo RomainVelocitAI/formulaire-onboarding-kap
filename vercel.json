@@ -4,10 +4,7 @@
   "installCommand": "npm install",
   "functions": {
     "api/submit-form.js": {
-      "maxDuration": 10,
-      "bodyParser": {
-        "sizeLimit": "4.5mb"
-      }
+      "maxDuration": 10
     }
   },
   "rewrites": [
