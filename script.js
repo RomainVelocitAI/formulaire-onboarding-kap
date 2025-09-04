@@ -42,15 +42,25 @@ document.addEventListener('DOMContentLoaded', function() {
         const picker = document.getElementById(pickerId);
         
         if (input && picker) {
+            // Quand on change le color picker, mettre à jour le champ texte
             picker.addEventListener('input', (e) => {
                 input.value = e.target.value;
             });
             
+            // Quand on clique sur le color picker (pour les changements via la palette)
+            picker.addEventListener('change', (e) => {
+                input.value = e.target.value;
+            });
+            
+            // Quand on tape dans le champ texte, mettre à jour le color picker
             input.addEventListener('input', (e) => {
                 if (/^#[0-9A-Fa-f]{6}$/.test(e.target.value)) {
                     picker.value = e.target.value;
                 }
             });
+            
+            // Synchronisation initiale
+            input.value = picker.value;
         }
     }
 
