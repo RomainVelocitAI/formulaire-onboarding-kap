@@ -62,10 +62,20 @@ export default async function handler(req, res) {
             });
         }
 
-        // Nettoyer les champs undefined pour Airtable
+        // Nettoyer les champs undefined et les attachments temporairement pour test
         Object.keys(data.fields).forEach(key => {
             if (data.fields[key] === undefined || data.fields[key] === '') {
                 delete data.fields[key];
+            }
+            // Temporairement : supprimer les attachments pour identifier le problème
+            // Les champs d'attachments dans Airtable sont : Logo, Photos équipe, Photos produits/services, 
+            // Photos locaux/ambiance, Documents commerciaux, CGV/CGU
+            const attachmentFields = ['Logo', 'Photos équipe', 'Photos produits/services', 
+                                     'Photos locaux/ambiance', 'Documents commerciaux', 'CGV/CGU'];
+            if (attachmentFields.includes(key) && Array.isArray(data.fields[key])) {
+                console.log(`ATTENTION: Suppression temporaire du champ ${key} pour test`);
+                delete data.fields[key];
+                // TODO: Réactiver après avoir identifié le problème
             }
         });
 
@@ -150,6 +160,20 @@ export default async function handler(req, res) {
         console.log('Champs avec attachments:', Object.keys(data.fields).filter(key => 
             Array.isArray(data.fields[key]) && data.fields[key][0]?.url
         ));
+        
+        // Vérifier le format des attachments
+        for (const [key, value] of Object.entries(data.fields)) {
+            if (Array.isArray(value) && value[0]?.url) {
+                console.log(`Attachment ${key}:`, {
+                    count: value.length,
+                    firstItem: {
+                        hasUrl: !!value[0].url,
+                        hasFilename: !!value[0].filename,
+                        urlStart: value[0].url?.substring(0, 50)
+                    }
+                });
+            }
+        }
         
         // Envoyer à Airtable
         airtableResponse = await fetch(url, {
