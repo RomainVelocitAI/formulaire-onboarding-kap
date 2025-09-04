@@ -16,7 +16,20 @@
       "mcp__vercel__deploy_to_vercel",
       "Read(/D:\\Formulaire kap numerique/**)",
       "Bash(git init:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git remote add:*)",
+      "Bash(git push:*)",
+      "Bash(vercel:*)",
+      "Bash(npm install:*)",
+      "mcp__vercel__list_teams",
+      "mcp__vercel__list_projects",
+      "Bash(npx vercel:*)",
+      "Read(/D:\\Formulaire kap numerique/**)",
+      "Read(/D:\\Formulaire kap numerique/**)",
+      "Read(/D:\\Formulaire kap numerique/**)",
+      "Read(/D:\\Formulaire kap numerique/**)",
+      "Read(/D:\\Formulaire kap numerique\\api/**)"
     ],
     "deny": [],
     "ask": []

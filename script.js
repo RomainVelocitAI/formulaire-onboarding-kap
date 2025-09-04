@@ -19,13 +19,23 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Mise à jour de la barre de progression
     function updateProgress() {
-        const requiredFields = form.querySelectorAll('[required]');
-        const filledFields = Array.from(requiredFields).filter(field => {
+        // Compter tous les champs du formulaire (pas seulement les obligatoires)
+        const allFields = form.querySelectorAll('input:not([type="file"]), textarea, select');
+        const filledFields = Array.from(allFields).filter(field => {
             if (field.type === 'checkbox') return field.checked;
             return field.value.trim() !== '';
         });
         
-        const progress = (filledFields.length / requiredFields.length) * 100;
+        // Ajouter les fichiers uploadés au comptage
+        let uploadedFilesCount = 0;
+        Object.values(uploadedFiles).forEach(files => {
+            if (files.length > 0) uploadedFilesCount++;
+        });
+        
+        const totalFields = allFields.length + Object.keys(uploadedFiles).length;
+        const totalFilled = filledFields.length + uploadedFilesCount;
+        
+        const progress = totalFields > 0 ? (totalFilled / totalFields) * 100 : 0;
         progressBar.style.width = `${progress}%`;
     }
 
@@ -284,30 +294,11 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // Validation du formulaire
+    // Validation du formulaire (plus de champs obligatoires)
     function validateForm() {
-        const requiredFields = form.querySelectorAll('[required]');
-        let isValid = true;
-
-        requiredFields.forEach(field => {
-            if (field.type === 'checkbox') {
-                if (!field.checked) {
-                    isValid = false;
-                    field.parentElement.style.borderColor = 'var(--danger)';
-                }
-            } else if (!field.value.trim()) {
-                isValid = false;
-                field.style.borderColor = 'var(--danger)';
-            }
-        });
-
-        // Vérifier qu'au moins un logo est uploadé
-        if (uploadedFiles.logo.length === 0) {
-            isValid = false;
-            showError('Veuillez uploader votre logo');
-        }
-
-        return isValid;
+        // Plus de validation obligatoire, tous les champs sont optionnels
+        // On peut soumettre même un formulaire vide pour sauvegarder l'avancement
+        return true;
     }
 
     // Gestion de la soumission

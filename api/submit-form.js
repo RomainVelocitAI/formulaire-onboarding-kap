@@ -37,37 +37,20 @@ export default async function handler(req, res) {
             });
         }
 
-        // Validation des champs obligatoires
-        const requiredFields = [
-            "Nom de l'entreprise",
-            "Contact principal",
-            "Email",
-            "Téléphone",
-            "Couleur principale",
-            "Style visuel préféré",
-            "Description entreprise",
-            "Services/Produits",
-            "Adresse complète",
-            "Mentions légales"
-        ];
+        // Plus de validation de champs obligatoires - tout est optionnel
 
-        for (const field of requiredFields) {
-            if (!data.fields[field]) {
+        // Validation de l'email SI fourni
+        const email = data.fields.Email;
+        if (email) {
+            const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+            if (!emailRegex.test(email)) {
                 return res.status(400).json({ 
-                    message: `Le champ "${field}" est obligatoire` 
+                    message: 'Adresse email invalide' 
                 });
             }
         }
 
-        // Validation de l'email
-        const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-        if (!emailRegex.test(data.fields.Email)) {
-            return res.status(400).json({ 
-                message: 'Adresse email invalide' 
-            });
-        }
-
-        // Validation des couleurs hexadécimales
+        // Validation des couleurs hexadécimales SI fournies
         const hexColorRegex = /^#[0-9A-Fa-f]{6}$/;
         if (data.fields["Couleur principale"] && !hexColorRegex.test(data.fields["Couleur principale"])) {
             return res.status(400).json({ 
@@ -82,11 +65,6 @@ export default async function handler(req, res) {
             }
         });
 
-        // Traiter les fichiers uploadés
-        // Airtable accepte les fichiers en base64 dans le format:
-        // [{url: "data:image/png;base64,...", filename: "file.png"}]
-        // Mais la taille totale de la requête ne doit pas dépasser 10MB
-
         // Vérifier la taille totale de la requête
         const requestSize = JSON.stringify(data).length;
         if (requestSize > 10 * 1024 * 1024) { // 10MB
@@ -95,18 +73,71 @@ export default async function handler(req, res) {
             });
         }
 
-        // Envoyer à Airtable
-        const airtableResponse = await fetch(
-            `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${encodeURIComponent(AIRTABLE_TABLE_NAME)}`,
-            {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${AIRTABLE_API_KEY}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(data)
+        let existingRecordId = null;
+        let actionType = 'created';
+
+        // Si un email est fourni, vérifier s'il existe déjà un enregistrement
+        if (email) {
+            try {
+                // Rechercher un enregistrement existant avec cet email
+                const searchUrl = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${encodeURIComponent(AIRTABLE_TABLE_NAME)}?filterByFormula=${encodeURIComponent(`{Email}="${email}"`)}`;
+                
+                const searchResponse = await fetch(searchUrl, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${AIRTABLE_API_KEY}`
+                    }
+                });
+
+                if (searchResponse.ok) {
+                    const searchResult = await searchResponse.json();
+                    if (searchResult.records && searchResult.records.length > 0) {
+                        // Un enregistrement existe déjà avec cet email
+                        existingRecordId = searchResult.records[0].id;
+                        actionType = 'updated';
+                        console.log(`Record trouvé pour ${email}: ${existingRecordId}`);
+                    }
+                }
+            } catch (searchError) {
+                console.error('Erreur lors de la recherche d\'enregistrement existant:', searchError);
+                // Continuer avec la création d'un nouvel enregistrement
             }
-        );
+        }
+
+        let airtableResponse;
+        let url;
+        let method;
+
+        if (existingRecordId) {
+            // UPDATE : Un enregistrement existe, le mettre à jour
+            url = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${encodeURIComponent(AIRTABLE_TABLE_NAME)}/${existingRecordId}`;
+            method = 'PATCH';
+            
+            // Ajouter la date de dernière mise à jour
+            data.fields['Dernière mise à jour'] = new Date().toISOString();
+            
+            console.log(`Mise à jour de l'enregistrement ${existingRecordId}`);
+        } else {
+            // CREATE : Pas d'enregistrement existant, créer un nouveau
+            url = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${encodeURIComponent(AIRTABLE_TABLE_NAME)}`;
+            method = 'POST';
+            
+            // Ajouter la date de soumission pour un nouveau record
+            data.fields['Date soumission'] = new Date().toISOString();
+            data.fields['Statut onboarding'] = 'En cours';
+            
+            console.log('Création d\'un nouvel enregistrement');
+        }
+
+        // Envoyer à Airtable
+        airtableResponse = await fetch(url, {
+            method: method,
+            headers: {
+                'Authorization': `Bearer ${AIRTABLE_API_KEY}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        });
 
         // Gérer la réponse d'Airtable
         if (!airtableResponse.ok) {
@@ -123,25 +154,55 @@ export default async function handler(req, res) {
                     errorMessage = 'Erreur avec les fichiers uploadés. Veuillez réessayer avec des fichiers plus petits.';
                 } else if (errorData.error.type === 'AUTHENTICATION_REQUIRED') {
                     errorMessage = 'Erreur d\'authentification avec Airtable';
+                } else if (errorData.error.type === 'UNKNOWN_FIELD_NAME') {
+                    // Si le champ "Dernière mise à jour" n'existe pas, l'ignorer
+                    if (existingRecordId && errorData.error.message?.includes('Dernière mise à jour')) {
+                        // Réessayer sans le champ "Dernière mise à jour"
+                        delete data.fields['Dernière mise à jour'];
+                        
+                        airtableResponse = await fetch(url, {
+                            method: method,
+                            headers: {
+                                'Authorization': `Bearer ${AIRTABLE_API_KEY}`,
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify(data)
+                        });
+                        
+                        if (!airtableResponse.ok) {
+                            const retryErrorData = await airtableResponse.json();
+                            errorMessage = retryErrorData.error?.message || errorMessage;
+                        }
+                    } else {
+                        errorMessage = errorData.error.message;
+                    }
                 } else if (errorData.error.message) {
                     errorMessage = errorData.error.message;
                 }
             }
             
-            return res.status(airtableResponse.status).json({ 
-                message: errorMessage 
-            });
+            if (!airtableResponse.ok) {
+                return res.status(airtableResponse.status).json({ 
+                    message: errorMessage 
+                });
+            }
         }
 
         const result = await airtableResponse.json();
 
+        // Message de succès différent selon l'action
+        const successMessage = actionType === 'updated' 
+            ? 'Vos informations ont été mises à jour avec succès' 
+            : 'Vos informations ont été enregistrées avec succès';
+
         // Envoyer un email de notification (optionnel)
-        await sendOnboardingNotification(data.fields);
+        await sendOnboardingNotification(data.fields, actionType);
 
         // Réponse de succès
         return res.status(200).json({ 
             success: true,
-            message: 'Formulaire d\'onboarding envoyé avec succès',
+            message: successMessage,
+            action: actionType,
             id: result.id
         });
 
@@ -162,24 +223,28 @@ export default async function handler(req, res) {
 }
 
 // Fonction pour envoyer une notification email
-async function sendOnboardingNotification(formData) {
+async function sendOnboardingNotification(formData, actionType) {
     // Si vous utilisez un service d'email comme SendGrid
     /*
     try {
         const sgMail = require('@sendgrid/mail');
         sgMail.setApiKey(process.env.SENDGRID_API_KEY);
         
+        const subject = actionType === 'updated' 
+            ? `Mise à jour onboarding: ${formData["Nom de l'entreprise"] || 'Client'}` 
+            : `Nouvel onboarding client: ${formData["Nom de l'entreprise"] || 'Nouveau'}`;
+        
         const msg = {
             to: 'equipe@kapnumerique.com',
             from: 'noreply@kapnumerique.com',
-            subject: `Nouvel onboarding client: ${formData["Nom de l'entreprise"]}`,
+            subject: subject,
             html: `
-                <h2>Nouvel onboarding client reçu</h2>
-                <p><strong>Entreprise:</strong> ${formData["Nom de l'entreprise"]}</p>
-                <p><strong>Contact:</strong> ${formData["Contact principal"]}</p>
-                <p><strong>Email:</strong> ${formData["Email"]}</p>
-                <p><strong>Téléphone:</strong> ${formData["Téléphone"]}</p>
-                <p><strong>Style visuel:</strong> ${formData["Style visuel préféré"]}</p>
+                <h2>${actionType === 'updated' ? 'Mise à jour' : 'Nouvel'} onboarding client</h2>
+                <p><strong>Entreprise:</strong> ${formData["Nom de l'entreprise"] || 'Non renseigné'}</p>
+                <p><strong>Contact:</strong> ${formData["Contact principal"] || 'Non renseigné'}</p>
+                <p><strong>Email:</strong> ${formData["Email"] || 'Non renseigné'}</p>
+                <p><strong>Téléphone:</strong> ${formData["Téléphone"] || 'Non renseigné'}</p>
+                <p><strong>Style visuel:</strong> ${formData["Style visuel préféré"] || 'Non renseigné'}</p>
                 <hr>
                 <p>Connectez-vous à Airtable pour voir tous les détails et fichiers uploadés.</p>
             `
