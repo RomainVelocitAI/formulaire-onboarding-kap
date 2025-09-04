@@ -75,20 +75,28 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Configuration des zones d'upload
-    setupUploadZone('logoUpload', 'logo', 'logo', ['image/png', 'image/jpeg', 'image/svg+xml']);
-    setupUploadZone('photosEquipeUpload', 'photos-equipe', 'photosEquipe', ['image/png', 'image/jpeg']);
-    setupUploadZone('photosProduitsUpload', 'photos-produits', 'photosProduits', ['image/png', 'image/jpeg']);
-    setupUploadZone('photosLocauxUpload', 'photos-locaux', 'photosLocaux', ['image/png', 'image/jpeg']);
-    setupUploadZone('videosUpload', 'videos', 'videos', ['video/mp4', 'video/quicktime', 'video/x-msvideo']);
-    setupUploadZone('cgvUpload', 'cgv', 'cgv', ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']);
-    setupUploadZone('docsCommerciaux', 'docs-commerciaux', 'docsCommerciaux', ['application/pdf', 'image/png', 'image/jpeg']);
+    setupUploadZone('logoUpload', 'logo', 'logo', ['image/png', 'image/jpeg', 'image/svg+xml'], 'logoFiles');
+    setupUploadZone('photosEquipeUpload', 'photos-equipe', 'photosEquipe', ['image/png', 'image/jpeg'], 'photosEquipeFiles');
+    setupUploadZone('photosProduitsUpload', 'photos-produits', 'photosProduits', ['image/png', 'image/jpeg'], 'photosProduitsFiles');
+    setupUploadZone('photosLocauxUpload', 'photos-locaux', 'photosLocaux', ['image/png', 'image/jpeg'], 'photosLocauxFiles');
+    setupUploadZone('videosUpload', 'videos', 'videos', ['video/mp4', 'video/quicktime', 'video/x-msvideo'], 'videosFiles');
+    setupUploadZone('cgvUpload', 'cgv', 'cgv', ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'], 'cgvFiles');
+    setupUploadZone('docsCommerciaux', 'docs-commerciaux', 'docsCommerciaux', ['application/pdf', 'image/png', 'image/jpeg'], 'docsCommerciauxFiles');
 
-    function setupUploadZone(zoneId, inputId, storageKey, acceptedTypes) {
+    function setupUploadZone(zoneId, inputId, storageKey, acceptedTypes, containerId) {
         const zone = document.getElementById(zoneId);
         const input = document.getElementById(inputId);
-        const filesContainer = document.getElementById(inputId.replace(/-/g, '') + 'Files');
+        const filesContainer = document.getElementById(containerId);
         
-        if (!zone || !input) return;
+        if (!zone || !input) {
+            console.error(`Zone d'upload non trouvée: zone=${zoneId}, input=${inputId}`);
+            return;
+        }
+        
+        if (!filesContainer) {
+            console.error(`Conteneur de fichiers non trouvé: ${containerId}`);
+            return;
+        }
 
         // Click pour ouvrir le sélecteur de fichiers
         zone.addEventListener('click', () => input.click());
@@ -137,6 +145,12 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function displayFile(file, storageKey, container) {
+        // Vérifier que le conteneur existe
+        if (!container) {
+            console.error(`Conteneur non fourni pour afficher le fichier ${file.name}`);
+            return;
+        }
+        
         const fileItem = document.createElement('div');
         fileItem.className = 'file-item';
         fileItem.innerHTML = `
@@ -159,9 +173,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 uploadedFiles[storageKey].splice(index, 1);
             }
             fileItem.remove();
+            updateProgress(); // Mettre à jour la progression après suppression
         });
 
         container.appendChild(fileItem);
+        updateProgress(); // Mettre à jour la progression après ajout
     }
 
     function showError(message) {
@@ -271,23 +287,18 @@ document.addEventListener('DOMContentLoaded', function() {
 
             return await response.json();
         } else {
-            // En développement
-            if (typeof AIRTABLE_CONFIG === 'undefined' || !AIRTABLE_CONFIG.API_KEY || AIRTABLE_CONFIG.API_KEY === 'YOUR_AIRTABLE_API_KEY') {
-                throw new Error('Configuration Airtable manquante. Veuillez configurer config.js');
-            }
-
-            const response = await fetch(`https://api.airtable.com/v0/${AIRTABLE_CONFIG.BASE_ID}/${AIRTABLE_CONFIG.TABLE_NAME}`, {
+            // En développement, utiliser l'API route locale aussi
+            const response = await fetch('/api/submit-form', {
                 method: 'POST',
                 headers: {
-                    'Authorization': `Bearer ${AIRTABLE_CONFIG.API_KEY}`,
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
                 },
                 body: JSON.stringify(data)
             });
 
             if (!response.ok) {
                 const error = await response.json();
-                throw new Error(error.error?.message || 'Erreur lors de l\'envoi du formulaire');
+                throw new Error(error.message || 'Erreur lors de l\'envoi du formulaire');
             }
 
             return await response.json();
