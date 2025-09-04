@@ -1,4 +1,7 @@
 {
+  "buildCommand": "echo 'No build required'",
+  "outputDirectory": ".",
+  "installCommand": "npm install",
   "functions": {
     "api/submit-form.js": {
       "maxDuration": 10
