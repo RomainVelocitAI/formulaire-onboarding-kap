@@ -330,7 +330,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 "Photos équipe": photosEquipeFiles.length > 0 ? photosEquipeFiles : undefined,
                 "Photos produits/services": photosProduitsFiles.length > 0 ? photosProduitsFiles : undefined,
                 "Photos locaux/ambiance": photosLocauxFiles.length > 0 ? photosLocauxFiles : undefined,
-                "Liens vidéos": formData.get('videos-links') || undefined,
+                "Vidéos": formData.get('videos-links') || undefined,
                 "Adresse complète": formData.get('adresse'),
                 "Horaires d'ouverture": formData.get('horaires') || undefined,
                 "Réseaux sociaux": formData.get('reseaux-sociaux') || undefined,

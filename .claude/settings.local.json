@@ -45,7 +45,10 @@
       "Read(/D:\\Formulaire kap numerique/**)",
       "Read(/D:\\Formulaire kap numerique/**)",
       "Read(/C:\\Users\\romai/**)",
-      "Read(/C:\\Users\\romai/**)"
+      "Read(/C:\\Users\\romai/**)",
+      "mcp__airtable-mcp__describe_table",
+      "Read(/D:\\Formulaire kap numerique/**)",
+      "Read(/D:\\Formulaire kap numerique/**)"
     ],
     "deny": [],
     "ask": []

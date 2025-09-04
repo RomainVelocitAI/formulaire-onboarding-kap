@@ -21,7 +21,9 @@ export default async function handler(req, res) {
         // Récupérer les variables d'environnement
         const AIRTABLE_API_KEY = process.env.AIRTABLE_API_KEY;
         const AIRTABLE_BASE_ID = process.env.AIRTABLE_BASE_ID || 'appKQYNANKrIVddKY';
-        const AIRTABLE_TABLE_NAME = 'Onboarding_Clients';
+        // Utiliser l'ID de table au lieu du nom pour éviter les problèmes d'encodage
+        const AIRTABLE_TABLE_ID = 'tblNK7R0o11hfHkCP';
+        const AIRTABLE_TABLE_NAME = AIRTABLE_TABLE_ID; // Pour compatibilité avec le reste du code
 
         // Vérifier que la clé API est configurée
         if (!AIRTABLE_API_KEY) {
@@ -93,7 +95,7 @@ export default async function handler(req, res) {
         if (email) {
             try {
                 // Rechercher un enregistrement existant avec cet email
-                const searchUrl = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${encodeURIComponent(AIRTABLE_TABLE_NAME)}?filterByFormula=${encodeURIComponent(`{Email}="${email}"`)}`;
+                const searchUrl = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${AIRTABLE_TABLE_NAME}?filterByFormula=${encodeURIComponent(`{Email}="${email}"`)}`;
                 
                 const searchResponse = await fetch(searchUrl, {
                     method: 'GET',
@@ -123,7 +125,7 @@ export default async function handler(req, res) {
 
         if (existingRecordId) {
             // UPDATE : Un enregistrement existe, le mettre à jour
-            url = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${encodeURIComponent(AIRTABLE_TABLE_NAME)}/${existingRecordId}`;
+            url = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${AIRTABLE_TABLE_NAME}/${existingRecordId}`;
             method = 'PATCH';
             
             // Ajouter la date de dernière mise à jour
@@ -132,7 +134,7 @@ export default async function handler(req, res) {
             console.log(`Mise à jour de l'enregistrement ${existingRecordId}`);
         } else {
             // CREATE : Pas d'enregistrement existant, créer un nouveau
-            url = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${encodeURIComponent(AIRTABLE_TABLE_NAME)}`;
+            url = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${AIRTABLE_TABLE_NAME}`;
             method = 'POST';
             
             // Ajouter la date de soumission pour un nouveau record
