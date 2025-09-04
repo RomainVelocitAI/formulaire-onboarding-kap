@@ -62,20 +62,25 @@ export default async function handler(req, res) {
             });
         }
 
-        // Nettoyer les champs undefined et les attachments temporairement pour test
+        // Nettoyer les champs undefined et traiter les attachments
         Object.keys(data.fields).forEach(key => {
             if (data.fields[key] === undefined || data.fields[key] === '') {
                 delete data.fields[key];
             }
-            // Temporairement : supprimer les attachments pour identifier le problème
-            // Les champs d'attachments dans Airtable sont : Logo, Photos équipe, Photos produits/services, 
-            // Photos locaux/ambiance, Documents commerciaux, CGV/CGU
+            // IMPORTANT: Airtable n'accepte que des URLs publiques pour les attachments
+            // Les data URLs en base64 ne fonctionnent pas
+            // Pour l'instant, on supprime les attachments et on stocke une note
             const attachmentFields = ['Logo', 'Photos équipe', 'Photos produits/services', 
                                      'Photos locaux/ambiance', 'Documents commerciaux', 'CGV/CGU'];
             if (attachmentFields.includes(key) && Array.isArray(data.fields[key])) {
-                console.log(`ATTENTION: Suppression temporaire du champ ${key} pour test`);
+                console.log(`Note: Le champ ${key} contient ${data.fields[key].length} fichier(s) - stockage des noms uniquement`);
+                // Stocker les noms de fichiers dans les notes internes pour référence
+                const fileNames = data.fields[key].map(f => f.filename || 'fichier').join(', ');
+                if (!data.fields['Notes internes']) {
+                    data.fields['Notes internes'] = '';
+                }
+                data.fields['Notes internes'] += `\n${key}: ${fileNames}`;
                 delete data.fields[key];
-                // TODO: Réactiver après avoir identifié le problème
             }
         });
 
@@ -239,8 +244,8 @@ export default async function handler(req, res) {
 
         // Message de succès différent selon l'action
         const successMessage = actionType === 'updated' 
-            ? 'Vos informations ont été mises à jour avec succès' 
-            : 'Vos informations ont été enregistrées avec succès';
+            ? 'Vos informations ont été mises à jour avec succès. Note: Les fichiers uploadés ne sont pas stockés directement dans Airtable mais leurs noms ont été enregistrés.' 
+            : 'Vos informations ont été enregistrées avec succès. Note: Les fichiers uploadés ne sont pas stockés directement dans Airtable mais leurs noms ont été enregistrés.';
 
         // Envoyer un email de notification (optionnel)
         await sendOnboardingNotification(data.fields, actionType);
