@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:kap-num-rique.vercel.app)",
+      "mcp__vercel__get_access_to_vercel_url",
+      "mcp__vercel__web_fetch_vercel_url",
+      "mcp__airtable-mcp__list_bases",
+      "mcp__airtable-mcp__list_tables",
+      "mcp__airtable-mcp__update_table",
+      "mcp__airtable-mcp__create_field",
+      "mcp__airtable-mcp__create_table",
+      "mcp__sequential-thinking__sequentialthinking",
+      "Read(/C:\\Users\\romai/**)",
+      "Read(/C:\\Users\\romai/**)",
+      "mcp__github__create_repository",
+      "mcp__vercel__deploy_to_vercel",
+      "Read(/D:\\Formulaire kap numerique/**)",
+      "Bash(git init:*)",
+      "Bash(git add:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

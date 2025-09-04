@@ -1,0 +1,23 @@
+{
+  "name": "formulaire-kap-numerique",
+  "version": "1.0.0",
+  "description": "Formulaire de contact professionnel pour Kap Numérique avec intégration Airtable",
+  "main": "index.html",
+  "scripts": {
+    "dev": "vercel dev",
+    "build": "echo 'No build required for static site'",
+    "deploy": "vercel --prod"
+  },
+  "keywords": [
+    "formulaire",
+    "airtable",
+    "kap-numerique",
+    "contact",
+    "vercel"
+  ],
+  "author": "Kap Numérique",
+  "license": "ISC",
+  "devDependencies": {
+    "vercel": "^32.0.0"
+  }
+}
