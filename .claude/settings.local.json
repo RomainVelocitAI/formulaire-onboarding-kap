@@ -33,7 +33,19 @@
       "Read(/D:\\Formulaire kap numerique/**)",
       "Read(/D:\\Formulaire kap numerique/**)",
       "Read(/D:\\Formulaire kap numerique/**)",
-      "Read(/D:\\Formulaire kap numerique/**)"
+      "Read(/D:\\Formulaire kap numerique/**)",
+      "mcp__vercel__list_deployments",
+      "mcp__vercel__get_deployment_build_logs",
+      "mcp__vercel__get_deployment",
+      "Read(/D:\\Formulaire kap numerique/**)",
+      "Read(/D:\\Formulaire kap numerique/**)",
+      "Bash(timeout:*)",
+      "Read(/D:\\Formulaire kap numerique\\api/**)",
+      "Read(/D:\\Formulaire kap numerique/**)",
+      "Read(/D:\\Formulaire kap numerique/**)",
+      "Read(/D:\\Formulaire kap numerique/**)",
+      "Read(/C:\\Users\\romai/**)",
+      "Read(/C:\\Users\\romai/**)"
     ],
     "deny": [],
     "ask": []

@@ -142,6 +142,13 @@ export default async function handler(req, res) {
             console.log('Création d\'un nouvel enregistrement');
         }
 
+        // Debug: log de la structure des données avant envoi
+        console.log('Envoi à Airtable - Méthode:', method);
+        console.log('URL:', url);
+        console.log('Champs avec attachments:', Object.keys(data.fields).filter(key => 
+            Array.isArray(data.fields[key]) && data.fields[key][0]?.url
+        ));
+        
         // Envoyer à Airtable
         airtableResponse = await fetch(url, {
             method: method,
@@ -155,7 +162,8 @@ export default async function handler(req, res) {
         // Gérer la réponse d'Airtable
         if (!airtableResponse.ok) {
             const errorData = await airtableResponse.json();
-            console.error('Erreur Airtable:', errorData);
+            console.error('Erreur Airtable - Status:', airtableResponse.status);
+            console.error('Erreur Airtable - Détails:', JSON.stringify(errorData, null, 2));
             
             // Parser l'erreur Airtable pour un message plus clair
             let errorMessage = 'Erreur lors de l\'enregistrement des données';

@@ -258,10 +258,11 @@ document.addEventListener('DOMContentLoaded', function() {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
             reader.onload = () => {
-                // Format pour Airtable: [{url: "data:image/png;base64,..."}]
+                // Format pour Airtable: {url: "data:image/png;base64,...", filename: "nom.jpg"}
+                // Note: filename est optionnel mais utile pour l'affichage dans Airtable
                 resolve({
-                    filename: file.name,
-                    url: reader.result
+                    url: reader.result,
+                    filename: fileToConvert.name || file.name
                 });
             };
             reader.onerror = reject;
@@ -347,10 +348,22 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Envoi vers Airtable
     async function submitToAirtable(data) {
-        const isProduction = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
-        
-        if (isProduction) {
-            // En production, utiliser l'API route
+        try {
+            // Log pour debug (sans les données base64 complètes)
+            console.log('Envoi des données à Airtable...');
+            const debugData = {
+                ...data,
+                fields: Object.entries(data.fields).reduce((acc, [key, value]) => {
+                    if (Array.isArray(value) && value[0]?.url?.startsWith('data:')) {
+                        acc[key] = `[${value.length} fichier(s) attaché(s)]`;
+                    } else {
+                        acc[key] = value;
+                    }
+                    return acc;
+                }, {})
+            };
+            console.log('Structure des données:', debugData);
+            
             const response = await fetch('/api/submit-form', {
                 method: 'POST',
                 headers: {
@@ -359,28 +372,17 @@ document.addEventListener('DOMContentLoaded', function() {
                 body: JSON.stringify(data)
             });
 
+            const result = await response.json();
+            
             if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.message || 'Erreur lors de l\'envoi du formulaire');
+                console.error('Erreur API:', response.status, result);
+                throw new Error(result.message || 'Erreur lors de l\'envoi du formulaire');
             }
 
-            return await response.json();
-        } else {
-            // En développement, utiliser l'API route locale aussi
-            const response = await fetch('/api/submit-form', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(data)
-            });
-
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.message || 'Erreur lors de l\'envoi du formulaire');
-            }
-
-            return await response.json();
+            return result;
+        } catch (error) {
+            console.error('Erreur lors de l\'envoi:', error);
+            throw error;
         }
     }
 
