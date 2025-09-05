@@ -61,6 +61,45 @@ export default async function handler(req, res) {
         if (!githubResponse.ok) {
             const error = await githubResponse.json();
             console.error('Erreur GitHub:', error);
+            
+            // Si erreur 409 (conflit), réessayer avec un nom différent
+            if (githubResponse.status === 409) {
+                const retryTimestamp = Date.now() + Math.floor(Math.random() * 1000);
+                const retryFilePath = `${uploadFolder}/${retryTimestamp}_${sanitizedFilename}`;
+                
+                console.log('Conflit détecté, nouvel essai avec:', retryFilePath);
+                
+                const retryResponse = await fetch(
+                    `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${retryFilePath}`,
+                    {
+                        method: 'PUT',
+                        headers: {
+                            'Authorization': `Bearer ${GITHUB_TOKEN}`,
+                            'Accept': 'application/vnd.github.v3+json',
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            message: `Upload ${sanitizedFilename} via formulaire onboarding (retry)`,
+                            content: base64Data,
+                            branch: GITHUB_BRANCH
+                        })
+                    }
+                );
+                
+                if (retryResponse.ok) {
+                    const retryData = await retryResponse.json();
+                    const publicUrl = `https://raw.githubusercontent.com/${GITHUB_OWNER}/${GITHUB_REPO}/${GITHUB_BRANCH}/${retryFilePath}`;
+                    
+                    return res.status(200).json({
+                        success: true,
+                        url: publicUrl,
+                        filename: sanitizedFilename,
+                        path: retryFilePath,
+                        sha: retryData.content.sha
+                    });
+                }
+            }
+            
             return res.status(githubResponse.status).json({ 
                 message: 'Erreur lors de l\'upload vers GitHub',
                 details: error.message 

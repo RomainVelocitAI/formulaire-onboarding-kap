@@ -51,7 +51,8 @@
       "Read(/D:\\Formulaire kap numerique/**)",
       "Read(/D:\\Formulaire kap numerique/**)",
       "Read(/D:\\Formulaire kap numerique/**)",
-      "Read(/D:\\Formulaire kap numerique/**)"
+      "Read(/D:\\Formulaire kap numerique/**)",
+      "Read(/D:\\Formulaire kap numerique\\api/**)"
     ],
     "deny": [],
     "ask": []
