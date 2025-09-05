@@ -181,14 +181,15 @@ document.addEventListener('DOMContentLoaded', function() {
         updateProgress(); // Mettre à jour la progression après ajout
     }
 
-    function showError(message) {
+    function showError(message, type = 'error') {
         // Créer une notification temporaire
         const notification = document.createElement('div');
+        const bgColor = type === 'info' ? '#3B82F6' : '#EF4444';
         notification.style.cssText = `
             position: fixed;
             top: 20px;
             right: 20px;
-            background: #EF4444;
+            background: ${bgColor};
             color: white;
             padding: 1rem;
             border-radius: 0.5rem;
@@ -198,7 +199,8 @@ document.addEventListener('DOMContentLoaded', function() {
         notification.textContent = message;
         document.body.appendChild(notification);
         
-        setTimeout(() => notification.remove(), 3000);
+        const timeout = type === 'info' ? 5000 : 3000;
+        setTimeout(() => notification.remove(), timeout);
     }
 
     // Compresser une image si nécessaire
@@ -250,23 +252,46 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Convertir les fichiers en base64 pour Airtable
-    async function fileToBase64(file) {
+    // Uploader un fichier vers GitHub et obtenir l'URL publique
+    async function uploadToGitHub(file, folder) {
         // Compresser l'image si nécessaire
-        const fileToConvert = await compressImage(file);
+        const fileToUpload = await compressImage(file);
         
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
-            reader.onload = () => {
-                // Format pour Airtable: {url: "data:image/png;base64,...", filename: "nom.jpg"}
-                // Note: filename est optionnel mais utile pour l'affichage dans Airtable
-                resolve({
-                    url: reader.result,
-                    filename: fileToConvert.name || file.name
-                });
+            reader.onload = async () => {
+                try {
+                    const response = await fetch('/api/upload-to-github', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            filename: fileToUpload.name || file.name,
+                            content: reader.result.split(',')[1], // Enlever le préfixe data:...
+                            folder: folder
+                        })
+                    });
+
+                    if (!response.ok) {
+                        const error = await response.json();
+                        throw new Error(error.message || 'Erreur lors de l\'upload vers GitHub');
+                    }
+
+                    const data = await response.json();
+                    
+                    // Retourner au format attendu par Airtable
+                    resolve({
+                        url: data.url,
+                        filename: data.filename
+                    });
+                } catch (error) {
+                    console.error('Erreur upload GitHub:', error);
+                    reject(error);
+                }
             };
             reader.onerror = reject;
-            reader.readAsDataURL(fileToConvert);
+            reader.readAsDataURL(fileToUpload);
         });
     }
 
@@ -277,26 +302,29 @@ document.addEventListener('DOMContentLoaded', function() {
         // Limiter le nombre de fichiers par catégorie pour éviter de dépasser la limite
         const MAX_FILES_PER_CATEGORY = 3;
         
-        // Convertir les fichiers en base64 (avec limitation)
+        // Afficher un message de progression
+        showError('Upload des fichiers vers GitHub en cours...', 'info');
+        
+        // Uploader les fichiers vers GitHub et obtenir les URLs publiques
         const logoFiles = await Promise.all(
-            uploadedFiles.logo.slice(0, 1).map(fileToBase64) // Un seul logo
+            uploadedFiles.logo.slice(0, 1).map(f => uploadToGitHub(f, 'uploads/logos')) // Un seul logo
         );
         const photosEquipeFiles = await Promise.all(
-            uploadedFiles.photosEquipe.slice(0, MAX_FILES_PER_CATEGORY).map(fileToBase64)
+            uploadedFiles.photosEquipe.slice(0, MAX_FILES_PER_CATEGORY).map(f => uploadToGitHub(f, 'uploads/equipe'))
         );
         const photosProduitsFiles = await Promise.all(
-            uploadedFiles.photosProduits.slice(0, MAX_FILES_PER_CATEGORY).map(fileToBase64)
+            uploadedFiles.photosProduits.slice(0, MAX_FILES_PER_CATEGORY).map(f => uploadToGitHub(f, 'uploads/produits'))
         );
         const photosLocauxFiles = await Promise.all(
-            uploadedFiles.photosLocaux.slice(0, MAX_FILES_PER_CATEGORY).map(fileToBase64)
+            uploadedFiles.photosLocaux.slice(0, MAX_FILES_PER_CATEGORY).map(f => uploadToGitHub(f, 'uploads/locaux'))
         );
-        // Pas de vidéos en base64 car trop volumineuses
+        // Pas de vidéos car trop volumineuses
         const videosFiles = [];
         const cgvFiles = await Promise.all(
-            uploadedFiles.cgv.slice(0, 2).map(fileToBase64) // Max 2 documents
+            uploadedFiles.cgv.slice(0, 2).map(f => uploadToGitHub(f, 'uploads/documents')) // Max 2 documents
         );
         const docsCommerciauxFiles = await Promise.all(
-            uploadedFiles.docsCommerciaux.slice(0, 2).map(fileToBase64) // Max 2 documents
+            uploadedFiles.docsCommerciaux.slice(0, 2).map(f => uploadToGitHub(f, 'uploads/documents')) // Max 2 documents
         );
         
         // Avertir l'utilisateur si des fichiers ont été ignorés

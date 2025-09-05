@@ -62,25 +62,22 @@ export default async function handler(req, res) {
             });
         }
 
-        // Nettoyer les champs undefined et traiter les attachments
+        // Nettoyer les champs undefined
         Object.keys(data.fields).forEach(key => {
             if (data.fields[key] === undefined || data.fields[key] === '') {
                 delete data.fields[key];
             }
-            // IMPORTANT: Airtable n'accepte que des URLs publiques pour les attachments
-            // Les data URLs en base64 ne fonctionnent pas
-            // Pour l'instant, on supprime les attachments et on stocke une note
+            // Les attachments sont maintenant des URLs GitHub publiques, donc Airtable devrait les accepter
+            // Format attendu par Airtable : [{url: "https://...", filename: "nom.jpg"}]
             const attachmentFields = ['Logo', 'Photos équipe', 'Photos produits/services', 
                                      'Photos locaux/ambiance', 'Documents commerciaux', 'CGV/CGU'];
             if (attachmentFields.includes(key) && Array.isArray(data.fields[key])) {
-                console.log(`Note: Le champ ${key} contient ${data.fields[key].length} fichier(s) - stockage des noms uniquement`);
-                // Stocker les noms de fichiers dans les notes internes pour référence
-                const fileNames = data.fields[key].map(f => f.filename || 'fichier').join(', ');
-                if (!data.fields['Notes internes']) {
-                    data.fields['Notes internes'] = '';
+                console.log(`Champ ${key}: ${data.fields[key].length} fichier(s) avec URLs GitHub`);
+                // Vérifier que chaque fichier a bien une URL
+                data.fields[key] = data.fields[key].filter(file => file.url);
+                if (data.fields[key].length === 0) {
+                    delete data.fields[key];
                 }
-                data.fields['Notes internes'] += `\n${key}: ${fileNames}`;
-                delete data.fields[key];
             }
         });
 
